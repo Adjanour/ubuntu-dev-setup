@@ -1,0 +1,90 @@
+---
+- name: Dev Environment Setup
+  hosts: localhost
+  become: yes
+
+  vars:
+    username: "{{ lookup('env', 'USER') }}"
+    git_username: "adjanour"
+    git_email: "adjanour@icloud.com"
+
+  tasks:
+    - name: Update and upgrade system packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install essential packages
+      apt:
+        name:
+          - git
+          - curl
+          - vim
+          - build-essential
+          - python3
+          - python3-pip
+          - python3-venv
+          - docker.io
+          - docker-compose
+          - ansible
+        state: present
+
+    - name: Add user to Docker group
+      user:
+        name: "{{ username }}"
+        groups: docker
+        append: yes
+
+    - name: Install Node.js and npm
+      shell: |
+        curl -sL https://deb.nodesource.com/setup_18.x | bash -
+        apt install -y nodejs
+
+    - name: Configure Git
+      git_config:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+      loop:
+        - { name: "user.name", value: "{{ git_username }}" }
+        - { name: "user.email", value: "{{ git_email }}" }
+
+    - name: Install Visual Studio Code
+      apt:
+        deb: https://packages.microsoft.com/repos/code/pool/main/c/code/code_1.81.1-1691620686_amd64.deb
+        state: present
+
+    - name: Install Python packages globally
+      pip:
+        name:
+          - virtualenv
+          - awscli
+          - ansible-lint
+
+    - name: Clone backup repository script
+      git:
+        repo: "https://github.com/Adjanour/ubuntu-dev-setup/blob/master/backup.sh"
+        dest: /home/{{ username }}/backup-scripts
+        version: main
+
+    - name: Create work and backup directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /home/{{ username }}/work
+        - /home/{{ username }}/backup
+
+    - name: Set up backup script
+      copy:
+        src: backup.sh
+        dest: /home/{{ username }}/backup.sh
+        mode: "0755"
+
+    - name: Install optional developer tools
+      apt:
+        name:
+          - postgresql
+          - mysql-server
+          - sqlite3
+        state: present
